@@ -118,6 +118,23 @@ end
 function addModelCell!(m::Lar.Model, deg::Int, c::Lar.Cell)::Nothing
     Lar.addModelCells!(m, deg, convert(Lar.ChainOp, c))
 end
+function addModelCells!(m::Lar.Model, deg::Int, cs::Lar.Cells)::Nothing
+    I = Array{Int,1}()
+    J = Array{Int,1}()
+    K = Array{Int8,1}()
+    for i = 1 : length(cs)
+        for j = 1 : length(cs[i])
+            push!(I, i)
+            push!(J, cs[i][j])
+            push!(K, 1)
+        end
+    end
+
+    scs = SparseArrays.sparse(I, J, K, length(cs), size(m, deg, 2));
+
+    return addModelCells!(m, deg, scs);
+end
+
 
 function deleteModelCells!(m::Lar.Model, deg::Int, cs::Array{Int, 1})::Nothing
     deg > 0 || throw(ArgumentError("Degree must be a non negative value"))
@@ -225,3 +242,24 @@ end
 
 
 #TODO check if removing sparse zeros is necessary
+
+
+function viewModel(model::Lar.Model, exp::Float64 = 1.)
+    # visualization of numbered arrangement
+    VV = [[k] for k = 1 : size(model, 0, 2)]
+    EV = LAR.cop2lar(model.T[1]);
+    FE = LAR.cop2lar(model.T[2]);
+    FV = cat([[EV[e] for e in face] for face in FE])
+
+    # final solid visualization
+    triangulated_faces = LAR.triangulate2D(
+        convert(Lar.Points, model.G'), [model.T[1], model.T[2]]
+    )
+    FVs = convert(Array{Lar.Cells}, triangulated_faces)
+    GL.VIEW(GL.GLExplode(model.G,FVs,exp,exp,exp,99,1));
+
+    # polygonal face boundaries
+    EVs = LAR.FV2EVs(model.T[1], model.T[2])
+    EVs = convert(Array{Array{Array{Int64,1},1},1}, EVs)
+    GL.VIEW(GL.GLExplode(model.G,EVs,exp,exp,exp,1,1));
+end
